@@ -4,6 +4,11 @@
 #include <unistd.h>
 #define MAX_ARGS 64
 
+void printError() {
+    const char error_message[] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
 
 void executeCommands(char *args[], int args_num, FILE *out) {
     // Check for built-in commands first
@@ -20,10 +25,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
     // Other command handling would go here...
 }
 
-void printError() {
-    const char error_message[] = "An error has occurred\n";
-    write(STDERR_FILENO, error_message, strlen(error_message));
-}
+
 
 
 
@@ -49,4 +51,3 @@ int main(int argc, char *argv[]) {
     free(line);
     return 0;
 }
-
