@@ -4,22 +4,42 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #define MAX_ARGS 64
+#define PATH_LEN 1024
 
+// Simulating a simple "Shell" object with behaviors as functions.
 void printError() {
     const char error_message[] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
+char *default_paths[] = {"/bin", NULL}; // Default search path, simulating a property of our "Shell" object.
+
+// Method to search for an executable in the default paths.
+char* findExecutable(char *command) {
+    static char path[PATH_LEN];
+    if (command[0] == '/' || command[0] == '.') {
+        // Command already has a path or is relative to the current directory
+        return command;
+    } else {
+        // Search in the default paths
+        for (int i = 0; default_paths[i] != NULL; i++) {
+            snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
+            if (access(path, X_OK) == 0) {
+                return path;
+            }
+        }
+    }
+    return NULL; // Executable not found
+}
+
 void executeCommands(char *args[], int args_num) {
     if (strcmp(args[0], "exit") == 0) {
-        // Handling for "exit" command
         if (args_num > 1) {
             printError(); // "exit" takes no arguments
         } else {
             exit(0);
         }
     } else if (strcmp(args[0], "cd") == 0) {
-        // Handling for "cd" command
         if (args_num != 2) {
             printError(); 
         } else {
@@ -28,19 +48,21 @@ void executeCommands(char *args[], int args_num) {
             }
         }
     } else {
-        // Handling other commands with fork() and execv()
+        char *executablePath = findExecutable(args[0]);
+        if (!executablePath) {
+            printError();
+            return;
+        }
+
         pid_t pid = fork();
         if (pid == 0) {
-            // Child process
-            if (execv(args[0], args) == -1) {
+            if (execv(executablePath, args) == -1) {
                 printError();
                 exit(EXIT_FAILURE);
             }
         } else if (pid < 0) {
-            // Forking failed
             printError();
         } else {
-            // Parent process, wait for child to complete
             waitpid(pid, NULL, 0);
         }
     }
@@ -88,4 +110,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
