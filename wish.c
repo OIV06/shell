@@ -9,7 +9,13 @@ void printError() {
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-
+void changeDirectory(char *path) {
+    int rc = chdir(path);
+    if (rc != 0) {
+        
+        printError();
+    }
+}
 void executeCommands(char *args[], int args_num, FILE *out) {
    
     if (strcmp(args[0], "cd") == 0) {
@@ -26,13 +32,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
 }
 
 
-void changeDirectory(char *path) {
-    int rc = chdir(path);
-    if (rc != 0) {
-        
-        printError();
-    }
-}
+
 
 
 int main(int argc, char *argv[]) {
