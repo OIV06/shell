@@ -14,14 +14,14 @@ void printError() {
 
 char *default_paths[] = {"/bin", NULL}; // Default search path, simulating a property of our "Shell" object.
 
-// Method to search for an executable in the default paths.
+// Method to search for an executable in the default path.
 char* findExecutable(char *command) {
     static char path[PATH_LEN];
     if (command[0] == '/' || command[0] == '.') {
         // Command already has a path or is relative to the current directory
         return command;
     } else {
-        // Search in the default paths
+        // Search in the default path
         for (int i = 0; default_paths[i] != NULL; i++) {
             snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
             if (access(path, X_OK) == 0) {
@@ -31,7 +31,17 @@ char* findExecutable(char *command) {
     }
     return NULL; // Executable not found
 }
-
+int searchPath(char path[], char *firstArg) {
+  // search executable file in path
+  int i = 0;
+  while (path[i] != NULL) {
+    snprintf(path, BUFF_SIZE, "%s/%s", path[i], firstArg);
+    if (access(path, X_OK) == 0)
+      return 0;
+    i++;
+  }
+  return -1;
+}
 void executeCommands(char *args[], int args_num) {
     if (strcmp(args[0], "exit") == 0) {
         if (args_num > 1) {
