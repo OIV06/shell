@@ -11,14 +11,14 @@ void printError() {
 
 
 void executeCommands(char *args[], int args_num, FILE *out) {
-    // Check for built-in commands first
+   
     if (strcmp(args[0], "cd") == 0) {
         // Handling for "cd" command
         if (args_num != 2) {
-            printError(); // Incorrect number of arguments for cd
+            printError(); 
             return;
-        } else if (chdir(args[1]) == -1) {
-            printError(); // Error changing directory
+        } else {
+            changeDirectory(args[1]); 
             return;
         }
     }
@@ -29,7 +29,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
 void changeDirectory(char *path) {
     int rc = chdir(path);
     if (rc != 0) {
-        // Handle error if chdir failed
+        
         printError();
     }
 }
