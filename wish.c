@@ -34,14 +34,7 @@ char* findExecutable(char *command) {//
     return NULL; // Executable not found
 }
 
-void executeCommands(char *args[], int args_num) {
-     if (isTestSequence(args[0])) {
-        for (int i = 0; i < args_num; ++i) {
-            printf("%s ", args[i]);
-        }
-        printf("\n");
-        return;
-    }
+void executeCommands(char *args[], int args_num, char ***paths) {
     if (strcmp(args[0], "exit") == 0) {
         if (args_num > 1) {
             printError(); // "exit" takes no arguments
@@ -50,28 +43,51 @@ void executeCommands(char *args[], int args_num) {
         }
     } else if (strcmp(args[0], "cd") == 0) {
         if (args_num != 2) {
-            printError(); 
+            printError(); // "cd" takes one argument
         } else {
             if (chdir(args[1]) != 0) {
-                printError();
+                printError(); // Error if directory change fails
+            }
+        }
+    } else if (strcmp(args[0], "path") == 0) {
+        // Clear existing paths
+        free(*paths);
+        if (args_num == 1) {
+            // If no arguments given, disable all paths
+            *paths = NULL;
+        } else {
+            // Allocate memory for new paths array
+            *paths = malloc(sizeof(char*) * args_num);
+            (*paths)[args_num - 1] = NULL; // Null-terminate the paths array
+            // Set new paths
+            for (int i = 1; i < args_num; i++) {
+                (*paths)[i - 1] = strdup(args[i]); // Duplicate and store each path
             }
         }
     } else {
+        // Handling of external commands
+        if (*paths == NULL || (*paths)[0] == NULL) {
+            printError(); // If paths are not set, print an error
+            return;
+        }
+        
         char *executablePath = findExecutable(args[0]);
         if (!executablePath) {
-            printError();
+            printError(); // If command not found in any path, print an error
             return;
         }
 
         pid_t pid = fork();
         if (pid == 0) {
-            if (execv(executablePath, args) == -1) {
-                printError();
-                exit(EXIT_FAILURE);
-            }
+            // Child process attempts to execute the command
+            execv(executablePath, args);
+            printError(); // If execv returns, there was an error
+            exit(EXIT_FAILURE);
         } else if (pid < 0) {
+            // Fork failed
             printError();
         } else {
+            // Parent process waits for child to complete
             waitpid(pid, NULL, 0);
         }
     }
@@ -81,7 +97,8 @@ int main(int argc, char *argv[]) {
     char *line = NULL;
     size_t bufsize = 0;
     ssize_t lineSize;
-
+    char **default_paths = malloc(sizeof(char*));
+    default_paths[0] = strdup("/bin");
     FILE *input_stream = (argc == 1) ? stdin : fopen(argv[1], "r");
     if (input_stream == NULL) {
         fprintf(stderr, "wish: cannot open file\n");
@@ -104,11 +121,12 @@ int main(int argc, char *argv[]) {
         args[args_num] = NULL; // NULL-terminate the array
 
         // Execute the command
-        executeCommands(args, args_num);
+        executeCommands(args, args_num, &default_paths);
         
         if (argc == 1) {
             printf("wish> ");
         }
+        
     }
 
     if (lineSize == -1) {
@@ -118,6 +136,10 @@ int main(int argc, char *argv[]) {
         }
         exit(0); // Exit gracefully on EOF
     }
-
+    for (int i = 0; default_paths && default_paths[i];i++)
+    {
+    free(default_paths[i]);        /* code */
+    }
+    
     return 0;
 }
