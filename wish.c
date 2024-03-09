@@ -31,17 +31,6 @@ char* findExecutable(char *command) {
     }
     return NULL; // Executable not found
 }
-int searchPath(char path[], char *firstArg) {
-  // search executable file in path
-  int i = 0;
-  while (path[i] != NULL) {
-    snprintf(path, BUFF_SIZE, "%s/%s", path[i], firstArg);
-    if (access(path, X_OK) == 0)
-      return 0;
-    i++;
-  }
-  return -1;
-}
 void executeCommands(char *args[], int args_num) {
     if (strcmp(args[0], "exit") == 0) {
         if (args_num > 1) {
