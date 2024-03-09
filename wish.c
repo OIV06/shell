@@ -92,9 +92,8 @@ int main(int argc, char *argv[]) {
         if (line[lineSize - 1] == '\n') {
             line[lineSize - 1] = '\0';
         }
-        if (argc >1){
-            printf("%s\n",line);
-        }else{
+        
+        
         char *args[MAX_ARGS];
         int args_num = 0;
         char *part = strsep(&line, " ");
@@ -105,7 +104,7 @@ int main(int argc, char *argv[]) {
         args[args_num] = NULL; // NULL-terminate the argument list
 
         executeCommands(args, args_num);
-        }
+        
         if (argc == 1) {
             printf("wish> ");
         }
