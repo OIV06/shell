@@ -92,17 +92,18 @@ int main(int argc, char *argv[]) {
         if (line[lineSize - 1] == '\n') {
             line[lineSize - 1] = '\0';
         }
-        
-        
         char *args[MAX_ARGS];
         int args_num = 0;
         char *part = strsep(&line, " ");
+
+        // Parse the input into an array of arguments
         while (part != NULL && args_num < MAX_ARGS) {
             args[args_num++] = part;
             part = strsep(&line, " ");
         }
-        args[args_num] = NULL; // NULL-terminate the argument list
+        args[args_num] = NULL; // NULL-terminate the array
 
+        // Execute the command
         executeCommands(args, args_num);
         
         if (argc == 1) {
