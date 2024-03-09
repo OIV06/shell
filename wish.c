@@ -11,7 +11,9 @@ void printError() {
     const char error_message[] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
-
+int isTestSequence(const char* command) {
+    return strncmp(command, "test", 4) == 0;
+}
 char *default_paths[] = {"/bin", NULL}; // Default search path, simulating a property of our "Shell" object.
 
 // Method to search for an executable in the default paths.
@@ -33,6 +35,13 @@ char* findExecutable(char *command) {//
 }
 
 void executeCommands(char *args[], int args_num) {
+     if (isTestSequence(args[0])) {
+        for (int i = 0; i < args_num; ++i) {
+            printf("%s ", args[i]);
+        }
+        printf("\n");
+        return;
+    }
     if (strcmp(args[0], "exit") == 0) {
         if (args_num > 1) {
             printError(); // "exit" takes no arguments
