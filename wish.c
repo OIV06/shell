@@ -9,7 +9,7 @@
 #define INTERACTIVE_MODE 1
 #define BATCH_MODE 2
 #define BUFF_SIZE 1024
-
+static char path[BUFF_SIZE];
 // Declare global variables.
 int pathNULL = 0;
 char *paths[BUFF_SIZE] = {"/bin", NULL};
@@ -44,7 +44,7 @@ char *trim(char *str) {
   return str;
 }
 int searchPath(char *firstArg) {
-  static char path[BUFF_SIZE];
+  
   if (pathNULL) {
     return -1; // Don't search for executables if pathNULL is set.
   }
@@ -74,7 +74,7 @@ void redirect(FILE *out) {
 }
 
 void executeCommands(char *args[], int args_num, FILE *out) {
-    char executablePath[BUFF_SIZE];
+    
   // Built-in command: 'exit'
   if (strcmp(args[0], "exit") == 0) {
     if (args_num > 1) {
@@ -116,7 +116,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
       // Child process
       redirect(out);
       char *envp[] = {NULL};
-      if (execve(executablePath, args, envp) == -1) {
+      if (execve(path, args, envp) == -1) {
         printError();
         exit(EXIT_FAILURE);
       }
