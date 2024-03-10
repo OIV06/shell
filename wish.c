@@ -6,22 +6,21 @@
 #define MAX_ARGS 64
 #define PATH_LEN 1024
 
-// Simulating a simple "Shell" object with behaviors as functions.
+// Global variable to control execution of non-built-in commands.
+int pathNULL = 0; // 0 = unrestricted, 1 = restricted to built-in commands only.
+
 void printError() {
     const char error_message[] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-char *default_paths[] = {"/bin", NULL}; // Default search path, simulating a property of our "Shell" object.
+char *default_paths[] = {"/bin", NULL}; // Default search path.
 
-// Method to search for an executable in the default paths.
-char* findExecutable(char *command) {//
+char* findExecutable(char *command) {
     static char path[PATH_LEN];
     if (command[0] == '/' || command[0] == '.') {
-        // Command already has a path or is relative to the current directory
         return command;
     } else {
-        // Search in the default paths
         for (int i = 0; default_paths[i] != NULL; i++) {
             snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
             if (access(path, X_OK) == 0) {
@@ -35,19 +34,26 @@ char* findExecutable(char *command) {//
 void executeCommands(char *args[], int args_num) {
     if (strcmp(args[0], "exit") == 0) {
         if (args_num > 1) {
-            printError(); // "exit" takes no arguments
+            printError(); // "exit" takes no arguments.
         } else {
             exit(0);
         }
     } else if (strcmp(args[0], "cd") == 0) {
         if (args_num != 2) {
-            printError(); 
+            printError();
         } else {
             if (chdir(args[1]) != 0) {
                 printError();
             }
         }
-    } else {
+    } else if (strcmp(args[0], "restrict") == 0) {
+        if (args_num > 1) {
+            printError(); // "restrict" takes no arguments.
+        } else {
+            pathNULL = !pathNULL; // Toggle restriction mode.
+            printf("Command execution is now %s.\n", pathNULL ? "restricted" : "unrestricted");
+        }
+    } else if (!pathNULL) {
         char *executablePath = findExecutable(args[0]);
         if (!executablePath) {
             printError();
@@ -65,6 +71,8 @@ void executeCommands(char *args[], int args_num) {
         } else {
             waitpid(pid, NULL, 0);
         }
+    } else {
+        printError(); // Attempt to run non-built-in command while restricted.
     }
 }
 
@@ -110,3 +118,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
