@@ -25,18 +25,21 @@ void updatePaths(char *newPaths[], int numPaths) {
     }
     default_paths[i] = NULL; // Terminate the new path list.
 }
-int redirect(const char *filename) {
-    int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd == -1) {
+int reDirect(char *filename) {
+    int fileDescriptor = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fileDescriptor < 0) {
         printError();
         return -1;
     }
-    if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
+
+    if (dup2(fileDescriptor, STDOUT_FILENO) < 0 || dup2(fileDescriptor, STDERR_FILENO) < 0) {
+        close(fileDescriptor);
         printError();
-        close(fd);
         return -1;
     }
-    return fd;
+
+    close(fileDescriptor);
+    return 0; // Return 0 on success
 }
 
 char* findExecutable(char *command) {
@@ -89,50 +92,30 @@ void executeCommands(char *args[], int args_num) {
             return;
         }
 
-    int redirectIndex = -1;
-    char *filename = NULL;
-    for (int i = 0; i < args_num; i++) {
+     char *filename = NULL;
+    for (int i = 0; i < args_num; ++i) {
         if (strcmp(args[i], ">") == 0) {
-            if (redirectIndex != -1) {
-                // Multiple redirection operators found
-                printError();
-                return;
-            }
-            redirectIndex = i;
             if (i == args_num - 1) {
-                // Redirection operator is the last argument, no filename specified
-                printError();
+                printError(); // No file specified for redirection
                 return;
             }
-            filename = args[i + 1]; // Filename is the argument after '>'
-            break; // Stop looking for further '>'
+            filename = args[i + 1]; // Set the filename for redirection
+            args[i] = NULL; // NULL-terminate the argument list at the redirection operator
+            break;
         }
     }
 
-    // Nullify the arguments after the redirection operator
-    if (redirectIndex != -1) {
-        args[redirectIndex] = NULL; // Cut off the argument list for exec
-        args_num = redirectIndex;   // Adjust the number of arguments
-    }
-      pid_t pid = fork();
+    // ... handle command execution ...
+
+    pid_t pid = fork();
     if (pid == 0) {
         // Child process
-
-        // Handle redirection if needed
-        int fd = -1;
-        if (filename != NULL) {
-            fd = redirect(filename); // Perform redirection
-            if (fd == -1) {
-                exit(EXIT_FAILURE); // Redirect failed, exit child process
-            }
+        if (filename && reDirect(filename) < 0) {
+            exit(EXIT_FAILURE); // Exit if redirection fails
         }
 
         // Execute the command
-        char *executablePath = findExecutable(args[0]);
-        if (!executablePath) {
-            printError();
-            exit(EXIT_FAILURE);
-        }
+        // ... look for the command in the PATH ...
         if (execv(executablePath, args) == -1) {
             printError();
             exit(EXIT_FAILURE);
@@ -144,7 +127,7 @@ void executeCommands(char *args[], int args_num) {
         // Parent process
         waitpid(pid, NULL, 0);
     }
-    }
+    } 
 }
 
 int main(int argc, char *argv[]) {
