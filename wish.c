@@ -3,201 +3,131 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <ctype.h>
-#include <pthread.h> 
-// Define constants for mode and buffer size.
-#define INTERACTIVE_MODE 1
-#define BATCH_MODE 2
-#define BUFF_SIZE 1024
+#define MAX_ARGS 64
+#define PATH_LEN 1024
 
-// Declare global variables.
-int pathNULL = 0;
-char *paths[BUFF_SIZE] = {"/bin", NULL};
-char *line = NULL;
-FILE *in = NULL;
-struct function_args {
-  pthread_t thread;
-  char *command;
-};
-// Function declarations.
+// Simulating a simple "Shell" object with behaviors as functions.
 void printError() {
     const char error_message[] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
-void clean(void) {
-  if (line) {
-    free(line);
-  }
-  if (in) {
-    fclose(in);
-  }
-}
-char *trim(char *str) {
-  while (isspace((unsigned char)*str)) str++;
-  if (*str == 0)  // All spaces?
-    return str;
 
-  char *end = str + strlen(str) - 1;
-  while (end > str && isspace((unsigned char)*end)) end--;
-  end[1] = '\0';
+char *default_paths[] = {"/bin", NULL}; // Default search path, simulating a property of our "Shell" object.
+int pathNULL = 0; // Global flag to control execution of non-built-in commands.
 
-  return str;
-}
-int searchPath(char *command, char *resolvedPath) {
-    // Iterate through the paths array to find the executable
-    for (int i = 0; paths[i] != NULL; i++) {
-        snprintf(resolvedPath, BUFF_SIZE, "%s/%s", paths[i], command);
-        if (access(resolvedPath, X_OK) == 0) {
-            // Executable found
-            return 0;
+char* findExecutable(char *command) {
+    static char path[PATH_LEN];
+    if (command[0] == '/' || command[0] == '.') {
+        // If the command starts with '/' or '.', it's a path to an executable
+        if (access(command, X_OK) == 0) {
+            return command;
+        } else {
+            return NULL; // Executable at given path not found or not executable
         }
-    }
-    // Executable not found
-    return -1;
-}
-
-void redirect(FILE *out) {
-  fflush(stdout);
-  int outFileno = fileno(out);
-  if (outFileno == -1) {
-    printError();
-    return;
-  }
-  if (outFileno != STDOUT_FILENO) {
-    if (dup2(outFileno, STDOUT_FILENO) == -1) {
-      printError();
-      return;
-    }
-    if (out != stderr && out != stdout) {
-      fclose(out);
-    }
-  }
-}
-
-void executeCommands(char *args[], int args_num, FILE *out) {
-    static char executablePath[BUFF_SIZE];
-  // Built-in command: 'exit'
-  if (strcmp(args[0], "exit") == 0) {
-    if (args_num > 1) {
-      printError();
+    } else if (pathNULL == 1) {
+        return NULL; // If pathNULL is set, we shouldn't look for executables outside built-in commands
     } else {
-      clean();
-      exit(EXIT_SUCCESS);
-    }
-  }
-  // Built-in command: 'cd'
-  else if (strcmp(args[0], "cd") == 0) {
-    if (args_num != 2 || chdir(args[1]) != 0) {
-      printError();
-    }
-  }
-  // Built-in command: 'path'
-  else if (strcmp(args[0], "path") == 0) {
-    for (size_t i = 0; i < BUFF_SIZE; i++) {
-      free(paths[i]);
-      paths[i] = (i + 1 < args_num) ? strdup(args[i + 1]) : NULL;
-    }
-  }
-  // Built-in command: 'restrict'
-  else if (strcmp(args[0], "restrict") == 0) {
-    if (args_num != 2 || (strcmp(args[1], "0") != 0 && strcmp(args[1], "1") != 0)) {
-      printError();
-    } else {
-      pathNULL = atoi(args[1]);
-    }
-  }
-  // External commands
-  else {
-    if (searchPath(args[0], executablePath) == -1) {
-      printError();
-      return;
-    }
-    pid_t pid = fork();
-    if (pid == 0) {
-      // Child process
-      redirect(out);
-      char *envp[] = {NULL};
-      if (execve(executablePath, args, envp) == -1) {
-        printError();
-        exit(EXIT_FAILURE);
-      }
-    } else if (pid < 0) {
-      // Error forking
-      printError();
-    } else {
-      // Parent process
-      waitpid(pid, NULL, 0);
-    }
-  }
-}
-
-// Include all the previously defined functions here, like printError, clean, trim, redirect, searchPath, etc.
-
-int main(int argc, char *argv[]) {
-    int mode = INTERACTIVE_MODE;
-    size_t linecap = 0;
-
-    // Batch mode check.
-    if (argc > 1) {
-        mode = BATCH_MODE;
-        in = fopen(argv[1], "r");
-        if (!in) {
-            printError();
-            exit(EXIT_FAILURE);
-        }
-    } else {
-        in = stdin;
-    }
-
-    while (1) {
-        if (mode == INTERACTIVE_MODE) {
-            printf("wish> ");
-            fflush(stdout);
-        }
-
-        if (getline(&line, &linecap, in) == -1) {
-            if (feof(in)) {
-                // End of file reached or error occurred.
-                break;
-            } else {
-                // Handle error.
-                printError();
-                continue;
+        // Search for the command in the default_paths
+        for (int i = 0; default_paths[i] != NULL; i++) {
+            snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
+            if (access(path, X_OK) == 0) {
+                return path;
             }
         }
+        return NULL; // Executable not found in the paths
+    }
+}
 
-        // Trim newline character.
+void executeCommands(char *args[], int args_num) {
+    if (strcmp(args[0], "exit") == 0) {
+        if (args_num > 1) {
+            printError(); // "exit" takes no arguments
+        } else {
+            exit(0);
+        }
+    } else if (strcmp(args[0], "cd") == 0) {
+        if (args_num != 2) {
+            printError();
+        } else {
+            if (chdir(args[1]) != 0) {
+                printError();
+            }
+        }
+    } else if (strcmp(args[0], "pathNULL") == 0) {
+        if (args_num != 2 || (strcmp(args[1], "0") != 0 && strcmp(args[1], "1") != 0)) {
+            printError();
+        } else {
+            pathNULL = atoi(args[1]);
+        }
+    } else {
+        char *executablePath = findExecutable(args[0]);
+        if (!executablePath) {
+            printError();
+            return;
+        }
+
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Child process
+            if (execv(executablePath, args) == -1) {
+                printError();
+                exit(EXIT_FAILURE);
+            }
+        } else if (pid < 0) {
+            // Failed to fork
+            printError();
+        } else {
+            // Parent process
+            waitpid(pid, NULL, 0);
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    char *line = NULL;
+    size_t bufsize = 0;
+
+    // Setup the input stream based on if a file is given as argument
+    FILE *input_stream = (argc == 1) ? stdin : fopen(argv[1], "r");
+    if (input_stream == NULL) {
+        fprintf(stderr, "wish: cannot open file\n");
+        return 1;
+    }
+
+    printf("wish> "); // Print the prompt
+    while (getline(&line, &bufsize, input_stream) != -1) {
+        // Remove newline character from input
         line[strcspn(line, "\n")] = 0;
-        
-        // Tokenize the input line into arguments.
-        char *args[BUFF_SIZE];
-        char *part = strtok(line, " ");
+
+        // Tokenize the input line into arguments
+        char *args[MAX_ARGS];
         int args_num = 0;
-        while (part != NULL && args_num < BUFF_SIZE) {
-            args[args_num++] = strdup(trim(part)); // Allocate new string for argument
+        char *part = strtok(line, " ");
+        while (part != NULL) {
+            args[args_num++] = part;
             part = strtok(NULL, " ");
         }
-        args[args_num] = NULL;
+        args[args_num] = NULL; // NULL-terminate the argument list
 
-        // Execute the commands.
-        FILE *out = stdout; // Default output file stream.
-        executeCommands(args, args_num, out);
+        // Execute the parsed command
+        executeCommands(args, args_num);
 
-        // Free the allocated arguments.
-        for (int i = 0; i < args_num; i++) {
-            free(args[i]);
-        }
-
-        // Reset the line buffer for the next read.
+        // Reset line buffer
         free(line);
         line = NULL;
+        bufsize = 0;
+
+        // Print the prompt if reading from stdin
+        if (argc == 1) {
+            printf("wish> ");
+        }
     }
 
-    // Clean up before exiting.
-    if (in != stdin) {
-        fclose(in);
-    }
+    // Clean up
     free(line);
-    
+    if (argc > 1) {
+        fclose(input_stream);
+    }
+
     return 0;
 }
