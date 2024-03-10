@@ -25,21 +25,33 @@ void updatePaths(char *newPaths[], int numPaths) {
     }
     default_paths[i] = NULL; // Terminate the new path list.
 }
-int reDirect(char *filename) {
-    int fileDescriptor = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fileDescriptor < 0) {
-        printError();
-        return -1;
+int reDirect(char **args, int args_num) {
+    int redirectIndex = -1;
+    for (int i = 0; i < args_num; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            if (redirectIndex != -1 || i == args_num - 1) { // Multiple redirections or no filename provided.
+                return -1; // Error.
+            }
+            redirectIndex = i;
+        }
     }
 
-    if (dup2(fileDescriptor, STDOUT_FILENO) < 0 || dup2(fileDescriptor, STDERR_FILENO) < 0) {
-        close(fileDescriptor);
-        printError();
-        return -1;
+    if (redirectIndex != -1) {
+        // Attempt to open the output file
+        int fd = open(args[redirectIndex + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1) {
+            return -1; // Error opening file.
+        }
+        // Redirect stdout and stderr to the file descriptor.
+        if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
+            close(fd);
+            return -1; // Error redirecting.
+        }
+        close(fd);
+        args[redirectIndex] = NULL; // Truncate the argument list here.
     }
-
-    close(fileDescriptor);
-    return 0; // Return 0 on success
+    
+    return 0; // Success.
 }
 
 char* findExecutable(char *command) {
@@ -92,42 +104,35 @@ void executeCommands(char *args[], int args_num) {
             return;
         }
 
-     char *filename = NULL;
-    for (int i = 0; i < args_num; ++i) {
-        if (strcmp(args[i], ">") == 0) {
-            if (i == args_num - 1) {
-                printError(); // No file specified for redirection
-                return;
-            }
-            filename = args[i + 1]; // Set the filename for redirection
-            args[i] = NULL; // NULL-terminate the argument list at the redirection operator
-            break;
-        }
-    }
-
-    // ... handle command execution ...
-
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
-        if (filename && reDirect(filename) < 0) {
-            exit(EXIT_FAILURE); // Exit if redirection fails
-        }
-
-        // Execute the command
-        // ... look for the command in the PATH ...
-        if (execv(executablePath, args) == -1) {
+     if (!pathNULL && strcmp(args[0], "path") != 0) {
+        char *executablePath = findExecutable(args[0]);
+        if (!executablePath) {
             printError();
-            exit(EXIT_FAILURE);
+            return;
         }
-    } else if (pid < 0) {
-        // Fork failed
-        printError();
+
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Redirect if needed
+            if (reDirect(args, args_num) == -1) {
+                printError();
+                exit(EXIT_FAILURE);
+            }
+
+            // Execute the command if redirection was successful
+            if (execv(executablePath, args) == -1) {
+                printError();
+                exit(EXIT_FAILURE);
+            }
+        } else if (pid < 0) {
+            printError(); // Fork failed.
+        } else {
+            waitpid(pid, NULL, 0); // Parent waits for child.
+        }
     } else {
-        // Parent process
-        waitpid(pid, NULL, 0);
+        // Built-in commands or pathNULL error handling
     }
-    } 
+ }
 }
 
 int main(int argc, char *argv[]) {
