@@ -5,7 +5,10 @@
 #include <sys/wait.h>
 #define MAX_ARGS 64
 #define PATH_LEN 1024
-
+#include <stdbool.h>
+char *custom_path[MAX_ARGS];
+int custom_path_count = 0;
+bool path_set = false;
 // Global variable to control execution of non-built-in commands.
 int pathNULL = 0; // 0 = unrestricted, 1 = restricted to built-in commands only.
 
@@ -16,19 +19,35 @@ void printError() {
 
 char *default_paths[] = {"/bin", NULL}; // Default search path.
 
+void setPath(char *args[], int args_num) {
+    path_set = true;
+    custom_path_count = args_num - 1;
+    for (int i = 0; i < custom_path_count; i++) {
+        custom_path[i] = args[i + 1];
+    }
+    custom_path[custom_path_count] = NULL; // NULL-terminate the PATH list
+}
 char* findExecutable(char *command) {
     static char path[PATH_LEN];
     if (command[0] == '/' || command[0] == '.') {
-        return command;
+        // If the command starts with '/' or '.', it's a path to an executable
+        if (access(command, X_OK) == 0) {
+            return command;
+        } else {
+            return NULL; // Executable at given path not found or not executable
+        }
+    } else if (!path_set) {
+        return NULL; // If PATH is not set, do not allow execution of scripts
     } else {
-        for (int i = 0; default_paths[i] != NULL; i++) {
-            snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
+        // Search for the command in the custom PATH
+        for (int i = 0; i < custom_path_count; i++) {
+            snprintf(path, PATH_LEN, "%s/%s", custom_path[i], command);
             if (access(path, X_OK) == 0) {
                 return path;
             }
         }
+        return NULL; // Executable not found in the PATH
     }
-    return NULL; // Executable not found
 }
 
 void executeCommands(char *args[], int args_num) {
@@ -118,3 +137,6 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
+
