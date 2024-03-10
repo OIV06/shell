@@ -43,18 +43,19 @@ char *trim(char *str) {
 
   return str;
 }
-int searchPath(char *firstArg) {
-  static char path[BUFF_SIZE];
-  if (pathNULL) {
-    return -1; // Don't search for executables if pathNULL is set.
-  }
-  for (int i = 0; paths[i] != NULL; i++) {
-    snprintf(path, BUFF_SIZE, "%s/%s", paths[i], firstArg);
-    if (access(path, X_OK) == 0)
-      return 0;
-  }
-  return -1; // Executable not found in any listed paths.
+int searchPath(char *command, char *resolvedPath) {
+    // Iterate through the paths array to find the executable
+    for (int i = 0; paths[i] != NULL; i++) {
+        snprintf(resolvedPath, BUFF_SIZE, "%s/%s", paths[i], command);
+        if (access(resolvedPath, X_OK) == 0) {
+            // Executable found
+            return 0;
+        }
+    }
+    // Executable not found
+    return -1;
 }
+
 void redirect(FILE *out) {
   fflush(stdout);
   int outFileno = fileno(out);
@@ -74,7 +75,7 @@ void redirect(FILE *out) {
 }
 
 void executeCommands(char *args[], int args_num, FILE *out) {
-    static char path[BUFF_SIZE];
+    static char executablePath[BUFF_SIZE];
   // Built-in command: 'exit'
   if (strcmp(args[0], "exit") == 0) {
     if (args_num > 1) {
@@ -107,7 +108,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
   }
   // External commands
   else {
-    if (searchPath(args[0]) == -1) {
+    if (searchPath(args[0], executablePath) == -1) {
       printError();
       return;
     }
@@ -116,7 +117,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
       // Child process
       redirect(out);
       char *envp[] = {NULL};
-      if (execve(path, args, envp) == -1) {
+      if (execve(executablePath, args, envp) == -1) {
         printError();
         exit(EXIT_FAILURE);
       }
