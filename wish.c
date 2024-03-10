@@ -5,10 +5,7 @@
 #include <sys/wait.h>
 #define MAX_ARGS 64
 #define PATH_LEN 1024
-#include <stdbool.h>
-char *custom_path[MAX_ARGS];
-int custom_path_count = 0;
-bool path_set = false;
+
 // Global variable to control execution of non-built-in commands.
 int pathNULL = 0; // 0 = unrestricted, 1 = restricted to built-in commands only.
 
@@ -19,35 +16,29 @@ void printError() {
 
 char *default_paths[] = {"/bin", NULL}; // Default search path.
 
-void setPath(char *args[], int args_num) {
-    path_set = true;
-    custom_path_count = args_num - 1;
-    for (int i = 0; i < custom_path_count; i++) {
-        custom_path[i] = args[i + 1];
-    }
-    custom_path[custom_path_count] = NULL; // NULL-terminate the PATH list
-}
 char* findExecutable(char *command) {
     static char path[PATH_LEN];
+    // If pathNULL is set, do not find executables for non-built-in commands
+    if (pathNULL && strcmp(command, "cd") != 0 && strcmp(command, "exit") != 0 && strcmp(command, "restrict") != 0) {
+        return NULL;
+    }
+
     if (command[0] == '/' || command[0] == '.') {
-        // If the command starts with '/' or '.', it's a path to an executable
+        // If the command is a path to an executable
         if (access(command, X_OK) == 0) {
             return command;
         } else {
-            return NULL; // Executable at given path not found or not executable
+            return NULL; // Not found or not executable
         }
-    } else if (!path_set) {
-        return NULL; // If PATH is not set, do not allow execution of scripts
     } else {
-        // Search for the command in the custom PATH
-        for (int i = 0; i < custom_path_count; i++) {
-            snprintf(path, PATH_LEN, "%s/%s", custom_path[i], command);
+        for (int i = 0; default_paths[i] != NULL; i++) {
+            snprintf(path, PATH_LEN, "%s/%s", default_paths[i], command);
             if (access(path, X_OK) == 0) {
                 return path;
             }
         }
-        return NULL; // Executable not found in the PATH
     }
+    return NULL; // Executable not found
 }
 
 void executeCommands(char *args[], int args_num) {
@@ -66,13 +57,18 @@ void executeCommands(char *args[], int args_num) {
             }
         }
     } else if (strcmp(args[0], "restrict") == 0) {
-        if (args_num > 1) {
-            printError(); // "restrict" takes no arguments.
+        if (args_num != 2 || (strcmp(args[1], "0") != 0 && strcmp(args[1], "1") != 0)) {
+            printError();
         } else {
-            pathNULL = !pathNULL; // Toggle restriction mode.
+            pathNULL = atoi(args[1]);
             printf("Command execution is now %s.\n", pathNULL ? "restricted" : "unrestricted");
         }
-    } else if (!pathNULL) {
+    } else {
+        if (pathNULL) {
+            printError();
+            return;
+        }
+
         char *executablePath = findExecutable(args[0]);
         if (!executablePath) {
             printError();
@@ -90,8 +86,6 @@ void executeCommands(char *args[], int args_num) {
         } else {
             waitpid(pid, NULL, 0);
         }
-    } else {
-        printError(); // Attempt to run non-built-in command while restricted.
     }
 }
 
@@ -113,10 +107,10 @@ int main(int argc, char *argv[]) {
 
         char *args[MAX_ARGS];
         int args_num = 0;
-        char *part = strsep(&line, " ");
+        char *part = strtok(line, " ");
         while (part != NULL && args_num < MAX_ARGS) {
             args[args_num++] = part;
-            part = strsep(&line, " ");
+            part = strtok(NULL, " ");
         }
         args[args_num] = NULL; // NULL-terminate the argument list
 
@@ -137,6 +131,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-
-
