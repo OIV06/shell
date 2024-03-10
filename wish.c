@@ -74,6 +74,7 @@ void redirect(FILE *out) {
 }
 
 void executeCommands(char *args[], int args_num, FILE *out) {
+    char executablePath[BUFF_SIZE];
   // Built-in command: 'exit'
   if (strcmp(args[0], "exit") == 0) {
     if (args_num > 1) {
@@ -115,7 +116,7 @@ void executeCommands(char *args[], int args_num, FILE *out) {
       // Child process
       redirect(out);
       char *envp[] = {NULL};
-      if (execve(searchPath, args, envp) == -1) {
+      if (execve(executablePath, args, envp) == -1) {
         printError();
         exit(EXIT_FAILURE);
       }
@@ -199,4 +200,5 @@ int main(int argc, char *argv[]) {
     
     return 0;
 }
+
 
