@@ -122,63 +122,34 @@ void executeCommands(char *args[], int args_num)
     }
     
 
-        int redirectIndex = -1;
-        char *filename = NULL;
-        for (int i = 0; i < args_num; i++)
-        {
-            if (strcmp(args[i], ">") == 0)
-            {
-                if (redirectIndex != -1)
-                {
-                    // Multiple redirection operators found
-                    printError();
-                    return;
-                }
-                redirectIndex = i;
-            }
-        }
+         int redirectIndex = -1;
+    char *filename = NULL;
 
-        if (redirectIndex != -1)
-        {
-            // Check redirection validity
-            if (redirectIndex == args_num - 1 || args_num - redirectIndex != 2)
-            {
-                // No filename specified or too many arguments after '>'
+    // Search for the redirection symbol '>'
+    for (int i = 0; i < args_num; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            if (redirectIndex != -1) {
+                // If we already found a redirection symbol, it's an error
                 printError();
                 return;
             }
-            filename = args[redirectIndex + 1];
-            args[redirectIndex] = NULL; // Terminate command arguments before '>'
+            redirectIndex = i;
         }
+    }
 
-        // Handle built-in commands (exit, cd, path)
-
-        // Non built-in command execution
-        if (!pathNULL && args[0] != NULL) {
-        int redirectIndex = -1;
-        char *filename = NULL;
-        for (int i = 0; i < args_num; i++) {
-            if (strcmp(args[i], ">") == 0) {
-                if (redirectIndex != -1) {
-                    // Multiple redirection operators found
-                    printError();
-                    return;
-                }
-                redirectIndex = i;
-            }
+    // Handle redirection if present
+    if (redirectIndex != -1) {
+        if (redirectIndex == args_num - 1 || args_num - redirectIndex != 2) {
+            // Redirection symbol is last or not followed by exactly one filename
+            printError();
+            return;
         }
+        filename = args[redirectIndex + 1]; // Set the filename for redirection
+        args[redirectIndex] = NULL;         // Terminate the command arguments before '>'
+    }
 
-        if (redirectIndex != -1) {
-            // Check redirection validity
-            if (redirectIndex == args_num - 1 || args_num - redirectIndex != 2) {
-                // No filename specified or too many arguments after '>'
-                printError();
-                return;
-            }
-            filename = args[redirectIndex + 1];
-            args[redirectIndex] = NULL; // Terminate command arguments before '>'
-        }
-
+    // If not a built-in command, proceed to execute it
+    if (!pathNULL && args[0] != NULL) {
         char *executablePath = findExecutable(args[0]);
         if (!executablePath) {
             printError();
@@ -187,7 +158,6 @@ void executeCommands(char *args[], int args_num)
 
         pid_t pid = fork();
         if (pid == -1) {
-            // Fork failed
             printError();
         } else if (pid == 0) {
             // In the child process
@@ -207,18 +177,15 @@ void executeCommands(char *args[], int args_num)
                 close(outFileno);
             }
 
-            // Execute the command
-            execv(executablePath, args);
-            // If execv returns, it's an error
-            printError();
+            execv(executablePath, args); // Execute the command
+            printError();                // Print error if execv returns
             exit(EXIT_FAILURE);
         } else {
-            // In the parent process
+            // In the parent process, wait for the child to complete
             waitpid(pid, NULL, 0);
         }
     }
 }
-
 
 int main(int argc, char *argv[])
 {
