@@ -91,7 +91,7 @@ void executeCommands(char *args[], int args_num) {
 
     // If redirection operator was found
     if (redirectIndex != -1) {
-        if (redirectIndex == args_num - 1 || redirectIndex != args_num - 2) {
+        if (redirectIndex == args_num - 1 || args_num - redirectIndex > 2) {
             // No filename specified or too many arguments after '>'
             printError();
             return;
@@ -99,7 +99,7 @@ void executeCommands(char *args[], int args_num) {
             // Extract the filename for redirection and adjust args
             filename = args[redirectIndex + 1];
             args[redirectIndex] = NULL; // NULL-terminate the argument list before the '>'
-            args_num = redirectIndex; // Adjust the number of arguments
+            
         }
     }
 
