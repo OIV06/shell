@@ -258,8 +258,3 @@ int main(int argc, char *argv[])
     }
     return 0; // Exit gracefully on EOF or closing file
 }
-    return 0;
-}
-
-    return 0;
-}
