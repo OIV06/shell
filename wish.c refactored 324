@@ -28,22 +28,14 @@ void printError()
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-void updatePaths(char *newPaths[], int numPaths) {
-    // Free previously set paths
-    for (int i = 0; default_paths[i] != NULL && i < MAX_PATHS; i++) {
-        free(default_paths[i]);
-        default_paths[i] = NULL;
-    }
-
-    // Set new paths
-    for (int i = 0; i < numPaths && i < MAX_PATHS; i++) {
+void updatePaths(char *newPaths[], int numPaths)
+{
+    int i;
+    for (i = 0; i < numPaths; i++)
+    {
         default_paths[i] = strdup(newPaths[i]);
     }
-
-    // If there are fewer new paths than MAX_PATHS, ensure the rest are NULL
-    for (int i = numPaths; i < MAX_PATHS; i++) {
-        default_paths[i] = NULL;
-    }
+    default_paths[i] = NULL; // Terminate the new path list.
 }
 
 
