@@ -30,14 +30,22 @@ void printError()
 
 void updatePaths(char *newPaths[], int numPaths) {
     for (int i = 0; i < MAX_PATHS && default_paths[i] != NULL; i++) {
-        free(default_paths[i]); // Free existing paths
+        free(default_paths[i]);
         default_paths[i] = NULL;
     }
+    
+    // If no new paths are given, make the first path NULL to clear paths
+    if (numPaths == 0) {
+        default_paths[0] = NULL;
+        return;
+    }
+
     for (int i = 0; i < numPaths && i < MAX_PATHS - 1; i++) {
         default_paths[i] = strdup(newPaths[i]);
     }
-    default_paths[numPaths] = NULL; // Ensure NULL-terminated
+    default_paths[numPaths] = NULL;
 }
+
 
 char *findExecutable(char *command)
 {
