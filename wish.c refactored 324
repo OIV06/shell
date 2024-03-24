@@ -174,20 +174,26 @@ void executeCommands(char *args[], int args_num)
                 return;
             }
             redirectIndex = i;
-            break; // Stop searching once we find the first '>'
-        }
+           if (i+1 < args_num){
+            filename= args[i + 1];
+
+           } else{
+            printError();
+            return;
+           }
+        }break;
     }
 
     // Handle redirection validity
-    if (redirectIndex != -1) {
-        if (redirectIndex == args_num - 1 || args_num - redirectIndex > 2) {
-            // No filename specified or too many arguments after '>'
-            printError();
-            return;
-        }
-        filename = args[redirectIndex + 1];
-        args[redirectIndex] = NULL; // Terminate command arguments before '>'
+    if (redirectIndex != -1 && filename == NULL) {
+        printError();
+        return;
     }
+     if (redirectIndex != 1 && filename != NULL ) {
+            // No filename specified or too many arguments after '>'
+            
+        
+       
 
     // Fork and execute the command
     pid_t pid = fork();
