@@ -225,14 +225,14 @@ int main(int argc, char *argv[]) {
     size_t bufsize = 0;
     ssize_t lineSize;
     char *line = NULL;
-    
-    // Check if shell is invoked in batch mode with files
+
     if (argc > 1) {
+        // Batch mode: Process each file provided as an argument
         for (int i = 1; i < argc; i++) {
             FILE *input_stream = fopen(argv[i], "r");
             if (!input_stream) {
                 fprintf(stderr, "wish: cannot open file %s\n", argv[i]);
-                continue; // Skip to the next file if the current one cannot be opened
+                continue; // Move to the next file if the current one cannot be opened
             }
 
             while ((lineSize = getline(&line, &bufsize, input_stream)) != -1) {
@@ -240,9 +240,9 @@ int main(int argc, char *argv[]) {
                     line[lineSize - 1] = '\0'; // Remove the newline at the end
                 }
 
-                char *preprocessedLine = tokenize(line); // Assuming tokenize() handles command parsing
+                char *preprocessedLine = tokenize(line);
+                char *args[MAX_ARGS];
                 int args_num = 0;
-                char *args[MAX_ARGS]; // Reset args for each line
                 char *token = strtok(preprocessedLine, " ");
                 while (token != NULL && args_num < MAX_ARGS) {
                     args[args_num++] = token;
@@ -251,32 +251,40 @@ int main(int argc, char *argv[]) {
                 args[args_num] = NULL; // NULL-terminate the argument list
 
                 executeCommands(args, args_num);
-
                 free(preprocessedLine);
             }
 
-            free(line); // Free the line buffer after processing each file
-            line = NULL; // Reset the line buffer for getline
-            fclose(input_stream); // Close the file after processing
+            free(line);
+            line = NULL; // Reset the line for getline
+            fclose(input_stream);
         }
     } else {
         // Interactive mode
-        printf("wish> ");
-        fflush(stdout);
+        while (1) {
+            printf("wish> ");
+            fflush(stdout); // Ensure the prompt is displayed immediately
 
-        while ((lineSize = getline(&line, &bufsize, stdin)) != -1) {
+            if ((lineSize = getline(&line, &bufsize, stdin)) == -1)
+                break; // Exit loop on EOF
+
             if (line[lineSize - 1] == '\n') {
                 line[lineSize - 1] = '\0';
             }
 
-            // Tokenization and execution logic as above...
+            char *preprocessedLine = tokenize(line);
+            char *args[MAX_ARGS];
+            int args_num = 0;
+            char *token = strtok(preprocessedLine, " ");
+            while (token != NULL && args_num < MAX_ARGS) {
+                args[args_num++] = token;
+                token = strtok(NULL, " ");
+            }
+            args[args_num] = NULL; // NULL-terminate the argument list
 
-            printf("wish> ");
-            fflush(stdout);
+            executeCommands(args, args_num);
+            free(preprocessedLine);
         }
-
         free(line);
     }
-
     return 0; // Exit gracefully
 }
