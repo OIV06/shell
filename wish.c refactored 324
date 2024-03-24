@@ -37,9 +37,27 @@ void updatePaths(char *newPaths[], int numPaths)
     }
     default_paths[i] = NULL; // Terminate the new path list.
 }
+void parseInput(char *input, char **args, int *args_num) {
+    // Initialize args_num
+    *args_num = 0;
 
-
-
+    // Tokenize the input string
+    char *next_token = strtok(input, " ");
+    while (next_token != NULL) {
+        // Check for special characters and handle them
+        if (strchr(next_token, '>') != NULL) {
+            // Handle redirection, potentially splitting the token further
+        } else {
+            // This is a regular token, just add it to the arguments list
+            args[*args_num] = next_token;
+            (*args_num)++;
+        }
+     // Get the next token
+        next_token = strtok(NULL, " ");
+    }
+    // NULL-terminate the args list
+    args[*args_num] = NULL;
+}
 char *findExecutable(char *command)
 {
     static char path[PATH_LEN];
@@ -234,7 +252,7 @@ int main(int argc, char *argv[])
             part = strsep(&line, " ");
         }
         args[args_num] = NULL; // NULL-terminate the argument list
-
+        parseInput(line, args, &args_num);
         executeCommands(args, args_num);
 
         if (argc == 1)
