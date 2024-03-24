@@ -4,6 +4,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+void printError();
+void updatePaths(char *newPaths[], int numPaths);
+char *findExecutable(char *command);
+void executeCommands(char *args[], int args_num);
+void executeExternalCommand(char *args[], int args_num);
 #define MAX_ARGS 64
 #define PATH_LEN 1024
 #define MAX_PATHS 16
