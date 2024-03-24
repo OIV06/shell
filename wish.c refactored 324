@@ -237,21 +237,17 @@ int main(int argc, char *argv[])
     }
 
     while ((lineSize = getline(&line, &bufsize, input_stream)) != -1)
-    {
+    {char *args[MAX_ARGS];
+        int args_num = 0;
+        size_t bufsize =0;
+        ssize_t lineSize;
         if (line[lineSize - 1] == '\n')
         {
             line[lineSize - 1] = '\0';
         }
 
-        char *args[MAX_ARGS];
-        int args_num = 0;
-        char *part = strsep(&line, " ");
-        while (part != NULL && args_num < MAX_ARGS)
-        {
-            args[args_num++] = part;
-            part = strsep(&line, " ");
-        }
-        args[args_num] = NULL; // NULL-terminate the argument list
+        
+       
         parseInput(line, args, &args_num);
         executeCommands(args, args_num);
 
