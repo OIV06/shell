@@ -12,15 +12,17 @@ void executeExternalCommand(char *args[], int args_num);
 #define MAX_ARGS 64
 #define PATH_LEN 1024
 #define MAX_PATHS 16
+
 FILE *in = NULL;
 char *line = NULL;
 int pathNULL = 0;
+char *default_paths[MAX_PATHS] = {"/bin", NULL}; // Default search path with room for expansion.
 void clean(void)
 {
     free(line);
     fclose(in);
 }
-char *default_paths[MAX_PATHS] = {"/bin", NULL}; // Default search path with room for expansion.
+
 
 void printError()
 {
@@ -103,6 +105,7 @@ void redirect(int outFileno)
     }
 }
 void executeCommands(char *args[], int args_num)
+
 {   if (args_num == 0){
     return;
 }
@@ -239,8 +242,7 @@ int main(int argc, char *argv[])
     while ((lineSize = getline(&line, &bufsize, input_stream)) != -1)
     {char *args[MAX_ARGS];
         int args_num = 0;
-        size_t bufsize =0;
-        ssize_t lineSize;
+        
         if (line[lineSize - 1] == '\n')
         {
             line[lineSize - 1] = '\0';
