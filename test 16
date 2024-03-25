@@ -9,6 +9,7 @@ void updatePaths(char *newPaths[], int numPaths);
 char *findExecutable(char *command);
 void executeCommands(char *args[], int args_num);
 void executeExternalCommand(char *args[], int args_num);
+int executeParallelCommands(char *commands[], int num_commands);
 #define MAX_LINE 1024 // The maximum length command
 #define MAX_ARGS 64
 #define PATH_LEN 1024
@@ -217,7 +218,34 @@ void executeCommands(char *args[], int args_num)
         waitpid(pid, NULL, 0);
     }
 }
+int executeParallelCommands(char *commands[], int num_commands) {
+    pid_t pids[num_commands];
+    for (int i = 0; i < num_commands; i++) {
+        pids[i] = fork();
+        if (pids[i] == 0) { // Child process
+            char *args[MAX_ARGS]; // Assuming MAX_ARGS is enough, adjust as necessary
+            int args_num = 0;
+            char *token = strtok(commands[i], " ");
+            while (token != NULL && args_num < MAX_ARGS) {
+                args[args_num++] = token;
+                token = strtok(NULL, " ");
+            }
+            args[args_num] = NULL; // NULL-terminate the argument list
 
+            executeCommands(args, args_num); // Use your existing function to execute each command
+            exit(EXIT_SUCCESS); // Exit child process
+        } else if (pids[i] < 0) {
+            printError(); // Error forking
+        }
+    }
+
+    // Wait for all child processes to finish
+    for (int i = 0; i < num_commands; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
+
+    return 0; // Success
+}
 int main(int argc, char *argv[])
 {
     size_t bufsize = 0;
@@ -256,42 +284,37 @@ int main(int argc, char *argv[])
         {
             line[lineSize - 1] = '\0';  // Remove newline character.
         }
-        char *command = strtok(line, "&");
-        while (command != NULL) {
-            char *individualCommand = strdup(command); // Duplicate the command string
-            char *preprocessedCommand = tokenize(individualCommand);
-            
-            // Parse and execute the command
-            char *parsedArgs[MAX_ARGS];
-            int args_num = 0;
-            char *token = strtok(preprocessedCommand, " ");
-            while (token != NULL && args_num < MAX_ARGS - 1) {
-                parsedArgs[args_num++] = token;
-                token = strtok(NULL, " ");
-            }
-            parsedArgs[args_num] = NULL;   // NULL-terminate the argument list.
-            
-            pid_t pid = fork(); // Create a new process for the command
-            if (pid == 0) {
-                // Child process executes the command
-                executeCommands(parsedArgs, args_num);
-                exit(EXIT_SUCCESS); // Child exits after execution
-            } else if (pid > 0) {
-                // Parent process (shell) continues to next command without waiting
-            } else {
-                printError(); // Fork failed
-            }
-            free(individualCommand);
-            command = strtok(NULL,"&");
+
+        char *preprocessedLine = tokenize(line);  // Tokenize the input line.
+        int args_num = 0;
+        char *token = strtok(preprocessedLine, " ");
+        while (token != NULL && args_num < MAX_ARGS)
+        {
+            args[args_num++] = token;  // Collect arguments.
+            token = strtok(NULL, " ");
         }
-        while(wait(NULL)>0);
+        args[args_num] = NULL;  // NULL-terminate the argument list.
+
+        executeCommands(args, args_num);  // Execute the commands.
+        
+        char *commands[MAX_ARGS]; // Assuming MAX_ARGS is enough, adjust as necessary
+        int num_commands = 0;
+        char *cmd = strtok(preprocessedLine, "&");
+        while (cmd != NULL && num_commands < MAX_ARGS) {
+            commands[num_commands++] = cmd;
+            cmd = strtok(NULL, "&");
+        }
+
+        // Execute parallel commands
+        executeParallelCommands(commands, num_commands);
+
         if (argc == 1)
         {
             // If in interactive mode, print prompt again after command execution.
             printf("wish> ");
             fflush(stdout);
         }
-        
+        free(preprocessedLine);
     }
 
     free(line);  // Clean up the allocated line buffer.
