@@ -4,6 +4,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+void printError();
+void updatePaths(char *newPaths[], int numPaths);
+char *findExecutable(char *command);
+void executeCommands(char *args[], int args_num);
+void executeExternalCommand(char *args[], int args_num);
+#define MAX_LINE 1024 // The maximum length command
 #define MAX_ARGS 64
 #define PATH_LEN 1024
 #define MAX_PATHS 16
@@ -15,7 +21,7 @@ void clean(void)
     free(line);
     fclose(in);
 }
-char *default_paths[MAX_PATHS] = {"/bin", NULL}; // Default search path with room for expansion.
+char *default_paths[MAX_PATHS] = {"/bin", NULL}; 
 
 void printError()
 {
@@ -30,20 +36,39 @@ void updatePaths(char *newPaths[], int numPaths)
     {
         default_paths[i] = strdup(newPaths[i]);
     }
-    default_paths[i] = NULL; // Terminate the new path list.
+    default_paths[i] = NULL;
 }
+
+char *tokenize(char *input) {
+    int i;
+    int j = 0;
+    char *tokenized = (char *)malloc((MAX_LINE * 2) * sizeof(char));
+    // add spaces around special characters
+    for (i = 0; input[i] != '\0'; i++) {
+        if (input[i] == '>' || input[i] == '<' || input[i] == '|'||input[i] == '&') {
+            tokenized[j++] = ' ';
+            tokenized[j++] = input[i];
+            tokenized[j++] = ' ';
+        } else {
+            tokenized[j++] = input[i];
+        }
+    }
+    tokenized[j] = '\0';
+    return tokenized;
+}
+
 
 char *findExecutable(char *command)
 {
     static char path[PATH_LEN];
     if (command[0] == '/' || command[0] == '.')
     {
-        // If it's an absolute or relative path, return it directly.
+        
         if (access(command, X_OK) == 0)
         {
             return command;
         }
-        return NULL; // Not executable or not found
+        return NULL; 
     }
     else
     {
@@ -56,19 +81,19 @@ char *findExecutable(char *command)
             }
         }
     }
-    return NULL; // Executable not found in any search path.
+    return NULL;
 }
 void redirect(int outFileno)
 {
     if (outFileno != STDOUT_FILENO)
     {
-        // Redirect stdout
+        
         if (dup2(outFileno, STDOUT_FILENO) == -1)
         {
             printError();
             exit(EXIT_FAILURE);
         }
-        // Redirect stderr
+       
         if (dup2(outFileno, STDERR_FILENO) == -1)
         {
             printError();
@@ -78,12 +103,14 @@ void redirect(int outFileno)
     }
 }
 void executeCommands(char *args[], int args_num)
-{
+{   if (args_num == 0){
+    return;
+}
     if (strcmp(args[0], "exit") == 0)
     {
         if (args_num > 1)
         {
-            printError(); // "exit" takes no arguments.
+            printError(); 
         }
         else
         {
@@ -108,153 +135,153 @@ void executeCommands(char *args[], int args_num)
     {
         if (args_num > 1)
         {
-            printError(); // "restrict" takes no arguments.
+            printError(); 
         }
         else
         {
-            pathNULL = !pathNULL; // Toggle restriction mode.
+            pathNULL = !pathNULL; 
             printf("Command execution is now %s.\n", pathNULL ? "restricted" : "unrestricted");
         }
     }
     else if (strcmp(args[0], "path") == 0)
     {
-        updatePaths(&args[1], args_num - 1); // Update the search paths.
+        updatePaths(&args[1], args_num - 1); 
     }
-    else if (!pathNULL)
-    {
+    else {
+        if (!pathNULL){
+            executeExternalCommand(args, args_num);
+        }
+    }
+}
+ void executeExternalCommand(char *args[], int args_num){ 
         char *executablePath = findExecutable(args[0]);
-        if (!executablePath)
-        {
+    if (!executablePath) {
+        printError();
+        return;
+    }
+
+    // Find redirection index, if any
+    int redirectIndex = -1;
+    char *filename = NULL;
+    for (int i = 0; i < args_num; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            if (redirectIndex != -1) {
+                printError();
+                return;
+            }
+            redirectIndex = i;
+            break; 
+        }
+    }
+
+    
+    if (redirectIndex != -1) {
+        if (redirectIndex == args_num - 1 || args_num - redirectIndex > 2) {
+            // No filename specified or too many arguments after '>'
             printError();
             return;
         }
+        filename = args[redirectIndex + 1];
+        args[redirectIndex] = NULL; 
+    }
 
-        int redirectIndex = -1;
-        char *filename = NULL;
-        for (int i = 0; i < args_num; i++)
-        {
-            if (strcmp(args[i], ">") == 0)
-            {
-                if (redirectIndex != -1)
-                {
-                    // Multiple redirection operators found
-                    printError();
-                    return;
-                }
-                redirectIndex = i;
-            }
-        }
-
-        if (redirectIndex != -1)
-        {
-            // Check redirection validity
-            if (redirectIndex == args_num - 1 || args_num - redirectIndex > 2)
-            {
-                // No filename specified or too many arguments after '>'
-                printError();
-                return;
-            }
-            filename = args[redirectIndex + 1];
-            args[redirectIndex] = NULL; // Terminate command arguments before '>'
-        }
-
-        // Handle built-in commands (exit, cd, path)
-
-        // Non built-in command execution
-        if (!pathNULL && args[0] != NULL)
-        {
-            char *executablePath = findExecutable(args[0]);
-            if (!executablePath)
-            {
-                printError();
-                return;
-            }
-
-            pid_t pid = fork();
-            if (pid == -1)
-            {
-                // Fork failed
-                printError();
-            }
-            else if (pid == 0)
-            {
-                // In the child process
-
-                // Handle redirection if needed
-                if (filename != NULL)
-                {
-                    int outFileno = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                    if (outFileno == -1)
-                    {
-                        printError();
-                        exit(EXIT_FAILURE);
-                    }
-                    if (dup2(outFileno, STDOUT_FILENO) == -1 || dup2(outFileno, STDERR_FILENO) == -1)
-                    {
-                        printError();
-                        close(outFileno);
-                        exit(EXIT_FAILURE);
-                    }
-                    close(outFileno);
-                }
-
-                // Execute the command
-                execv(executablePath, args);
-                // If execv returns, it's an error
+    
+    pid_t pid = fork();
+    if (pid == -1) {
+        
+        printError();
+        return;
+    } else if (pid == 0) {
+        
+        if (filename != NULL) {
+            int outFileno = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (outFileno == -1) {
                 printError();
                 exit(EXIT_FAILURE);
             }
-            else
-            {
-                // In the parent process
-                waitpid(pid, NULL, 0);
+            if (dup2(outFileno, STDOUT_FILENO) == -1 || dup2(outFileno, STDERR_FILENO) == -1) {
+                printError();
+                close(outFileno);
+                exit(EXIT_FAILURE);
             }
+            close(outFileno);
         }
+
+        // Execute the command
+        execv(executablePath, args);
+        
+        printError();
+        exit(EXIT_FAILURE);
+    } else {
+        // In the parent process
+        waitpid(pid, NULL, 0);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    char *line = NULL;
     size_t bufsize = 0;
     ssize_t lineSize;
+    FILE *input_stream = stdin;  // Default input stream is stdin for interactive mode.
+    char *args[MAX_ARGS];
+    char *line = NULL;
 
-    FILE *input_stream = (argc == 1) ? stdin : fopen(argv[1], "r");
-    if (input_stream == NULL)
+    // Handling invalid usage scenario: more than one input file for batch mode.
+    if (argc > 2)
     {
-        fprintf(stderr, "wish: cannot open file\n");
-        return 1;
+        printError();
+        exit(EXIT_FAILURE);
+    }
+    else if (argc == 2)
+    {
+        // Batch mode: attempt to open the specified file.
+        input_stream = fopen(argv[1], "r");
+        if (!input_stream)
+        {
+            // If the file cannot be opened, print an error message and exit.
+            printError();
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        // Interactive mode: Display the prompt.
+        printf("wish> ");
+        fflush(stdout);
     }
 
     while ((lineSize = getline(&line, &bufsize, input_stream)) != -1)
     {
         if (line[lineSize - 1] == '\n')
         {
-            line[lineSize - 1] = '\0';
+            line[lineSize - 1] = '\0';  // Remove newline character.
         }
 
-        char *args[MAX_ARGS];
+        char *preprocessedLine = tokenize(line);  // Tokenize the input line.
         int args_num = 0;
-        char *part = strsep(&line, " ");
-        while (part != NULL && args_num < MAX_ARGS)
+        char *token = strtok(preprocessedLine, " ");
+        while (token != NULL && args_num < MAX_ARGS)
         {
-            args[args_num++] = part;
-            part = strsep(&line, " ");
+            args[args_num++] = token;  // Collect arguments.
+            token = strtok(NULL, " ");
         }
-        args[args_num] = NULL; // NULL-terminate the argument list
+        args[args_num] = NULL;  // NULL-terminate the argument list.
 
-        executeCommands(args, args_num);
+        executeCommands(args, args_num);  // Execute the commands.
 
         if (argc == 1)
         {
+            // If in interactive mode, print prompt again after command execution.
             printf("wish> ");
+            fflush(stdout);
         }
+        free(preprocessedLine);
     }
 
-    free(line);
+    free(line);  // Clean up the allocated line buffer.
     if (argc > 1)
     {
-        fclose(input_stream);
+        fclose(input_stream);  // Close the file stream if in batch mode.
     }
-    return 0; // Exit gracefully on EOF or closing file
+    return 0;  // Exit gracefully.
 }
