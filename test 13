@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <errno.h>
 void printError();
 void updatePaths(char *newPaths[], int numPaths);
 char *findExecutable(char *command);
@@ -232,7 +233,7 @@ int main(int argc, char *argv[])
     // Handling invalid usage scenario: more than one input file for batch mode.
     if (argc > 2)
     {
-        fprintf(stderr, "wish: cannot open file %s\n");
+       printError();
         exit(EXIT_FAILURE);
     }
     else if (argc == 2)
