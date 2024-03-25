@@ -10,6 +10,7 @@ char *findExecutable(char *command);
 void executeCommands(char *args[], int args_num);
 void executeExternalCommand(char *args[], int args_num);
 int executeParallelCommands(char *commands[], int num_commands);
+void executeSingleCommand(char *cmd);
 #define MAX_LINE 1024 // The maximum length command
 #define MAX_ARGS 64
 #define PATH_LEN 1024
@@ -246,11 +247,27 @@ int executeParallelCommands(char *commands[], int num_commands) {
 
     return 0; // Success
 }
+void executeSingleCommand(char *cmd) {
+    char *args[MAX_ARGS];
+    int args_num = 0;
+    char *tokenizedCmd = strdup(cmd); // Duplicate cmd to safely tokenize it
+    char *token = strtok(tokenizedCmd, " ");
+
+    while (token != NULL && args_num < MAX_ARGS - 1) {
+        args[args_num++] = token;
+        token = strtok(NULL, " ");
+    }
+    args[args_num] = NULL; // Null-terminate the argument list
+
+    // Assuming executeCommands handles the command execution logic
+    executeCommands(args, args_num);
+
+    free(tokenizedCmd); // Clean up the duplicated command string
+}
 int main(int argc, char *argv[]) {
-    size_t bufsize = 0;
-    ssize_t lineSize;
-    FILE *input_stream = stdin; // Default input stream is stdin for interactive mode.
     char *line = NULL;
+    size_t bufsize = 0;
+    FILE *input_stream = stdin;
 
     if (argc > 2) {
         printError();
@@ -263,37 +280,26 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    while ((lineSize = getline(&line, &bufsize, input_stream)) != -1) {
-        if (line[lineSize - 1] == '\n') {
-            line[lineSize - 1] = '\0'; // Remove newline character.
-        }
+    while (getline(&line, &bufsize, input_stream) != -1) {
+        char *preprocessedLine = tokenize(line); // Assume tokenize handles special chars
 
-        // Tokenize the input line to preprocess for special characters
-        char *preprocessedLine = tokenize(line); // Your existing tokenize function
-
-        // Split the preprocessed line by '&' to identify parallel commands
-        char *commands[MAX_ARGS]; // Assuming MAX_ARGS is enough, adjust as necessary
-        int num_commands = 0;
+        // Split commands by '&' and execute them
         char *cmd = strtok(preprocessedLine, "&");
-        while (cmd != NULL && num_commands < MAX_ARGS) {
-            commands[num_commands++] = cmd;
+        while (cmd) {
+            executeSingleCommand(cmd); // Handles execution of a single command
             cmd = strtok(NULL, "&");
         }
 
-        // Execute each command (potentially in parallel)
-        executeParallelCommands(commands, num_commands); // This function needs to handle forking if necessary
-
-        if (argc == 1) {
+        if (input_stream == stdin) {
             printf("wish> ");
             fflush(stdout);
         }
-        free(preprocessedLine); // Make sure to free any dynamically allocated memory within tokenize
+        free(preprocessedLine);
     }
 
     free(line);
-    if (argc > 1) {
+    if (input_stream != stdin) {
         fclose(input_stream);
     }
     return 0;
 }
-
