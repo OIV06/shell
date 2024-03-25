@@ -9,6 +9,7 @@ void updatePaths(char *newPaths[], int numPaths);
 char *findExecutable(char *command);
 void executeCommands(char *args[], int args_num);
 void executeExternalCommand(char *args[], int args_num);
+void executeParallelCommands(char *line);
 #define MAX_LINE 1024 // The maximum length command
 #define MAX_ARGS 64
 #define PATH_LEN 1024
@@ -217,6 +218,44 @@ void executeCommands(char *args[], int args_num)
         waitpid(pid, NULL, 0);
     }
 }
+void executeParallelCommands(char *line) {
+    char *commands[MAX_ARGS]; // Assuming a maximum number of parallel commands
+    int nCommands= 0;
+    char *command = strtok(line, "&");
+    while (command != NULL && nCommands < MAX_ARGS) {
+        commands[nCommands++] = command;
+        command = strtok(NULL, "&");
+    }
+
+    pid_t pids[nCommands]; // To store child PIDs
+
+    for (int i = 0; i < nCommands; i++) {
+        pids[i] = fork();
+        if (pids[i] == 0) {
+            // Child process
+            char *args[MAX_ARGS];
+            int args_num = 0;
+            char *token = strtok(commands[i], " ");
+            while (token != NULL && args_num < MAX_ARGS) {
+                args[args_num++] = token;
+                token = strtok(NULL, " ");
+            }
+            args[args_num] = NULL;
+            executeCommands(args, args_num);
+            exit(0); // Ensure child exits after execution
+        } else if (pids[i] < 0) {
+            // Forking failed
+            printError();
+        }
+    }
+
+    // Parent process: wait for all child processes to finish
+    for (int i = 0; i < nCommands; i++) {
+        if (pids[i] > 0) {
+            waitpid(pids[i], NULL, 0);
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -256,6 +295,10 @@ int main(int argc, char *argv[])
         {
             line[lineSize - 1] = '\0';  // Remove newline character.
         }
+          if (strchr(line, '&') != NULL) {
+            // Handle parallel commands
+            executeParallelCommands(line); // Implement this function
+        } else {
 
         char *preprocessedLine = tokenize(line);  // Tokenize the input line.
         int args_num = 0;
@@ -267,7 +310,7 @@ int main(int argc, char *argv[])
         }
         args[args_num] = NULL;  // NULL-terminate the argument list.
 
-        executeCommands(args, args_num);  // Execute the commands.
+         executeCommands(args, args_num);
 
         if (argc == 1)
         {
@@ -276,6 +319,8 @@ int main(int argc, char *argv[])
             fflush(stdout);
         }
         free(preprocessedLine);
+    }
+    
     }
 
     free(line);  // Clean up the allocated line buffer.
