@@ -256,26 +256,42 @@ int main(int argc, char *argv[])
         {
             line[lineSize - 1] = '\0';  // Remove newline character.
         }
-
-        char *preprocessedLine = tokenize(line);  // Tokenize the input line.
-        int args_num = 0;
-        char *token = strtok(preprocessedLine, " ");
-        while (token != NULL && args_num < MAX_ARGS)
-        {
-            args[args_num++] = token;  // Collect arguments.
-            token = strtok(NULL, " ");
+        char *command = strtok(line, "&");
+        while (command != NULL) {
+            char *individualCommand = strdup(command); // Duplicate the command string
+            char *preprocessedCommand = tokenize(individualCommand);
+            
+            // Parse and execute the command
+            char *parsedArgs[MAX_ARGS];
+            int args_num = 0;
+            char *token = strtok(preprocessedCommand, " ");
+            while (token != NULL && args_num < MAX_ARGS - 1) {
+                parsedArgs[args_num++] = token;
+                token = strtok(NULL, " ");
+            }
+            parsedArgs[args_num] = NULL;   // NULL-terminate the argument list.
+            
+            pid_t pid = fork(); // Create a new process for the command
+            if (pid == 0) {
+                // Child process executes the command
+                executeCommands(parsedArgs, args_num);
+                exit(EXIT_SUCCESS); // Child exits after execution
+            } else if (pid > 0) {
+                // Parent process (shell) continues to next command without waiting
+            } else {
+                printError(); // Fork failed
+            }
+            free(individualCommand);
+            command = strtok(NULL,"&");
         }
-        args[args_num] = NULL;  // NULL-terminate the argument list.
-
-        executeCommands(args, args_num);  // Execute the commands.
-
+        while(wait(NULL)>0);
         if (argc == 1)
         {
             // If in interactive mode, print prompt again after command execution.
             printf("wish> ");
             fflush(stdout);
         }
-        free(preprocessedLine);
+        
     }
 
     free(line);  // Clean up the allocated line buffer.
