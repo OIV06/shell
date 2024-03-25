@@ -220,16 +220,16 @@ void executeCommands(char *args[], int args_num)
 }
 void executeParallelCommands(char *line) {
     char *commands[MAX_ARGS]; // Assuming a maximum number of parallel commands
-    int commands_num = 0;
+    int nCommands= 0;
     char *command = strtok(line, "&");
-    while (command != NULL && commands_num < MAX_ARGS) {
-        commands[commands_num++] = command;
+    while (command != NULL && nCommands < MAX_ARGS) {
+        commands[nCommands++] = command;
         command = strtok(NULL, "&");
     }
 
-    pid_t pids[commands_num]; // To store child PIDs
+    pid_t pids[nCommands]; // To store child PIDs
 
-    for (int i = 0; i < commands_num; i++) {
+    for (int i = 0; i < nCommands; i++) {
         pids[i] = fork();
         if (pids[i] == 0) {
             // Child process
@@ -250,7 +250,7 @@ void executeParallelCommands(char *line) {
     }
 
     // Parent process: wait for all child processes to finish
-    for (int i = 0; i < commands_num; i++) {
+    for (int i = 0; i < nCommands; i++) {
         if (pids[i] > 0) {
             waitpid(pids[i], NULL, 0);
         }
@@ -295,6 +295,10 @@ int main(int argc, char *argv[])
         {
             line[lineSize - 1] = '\0';  // Remove newline character.
         }
+          if (strchr(line, '&') != NULL) {
+            // Handle parallel commands
+            executeParallelCommands(line); // Implement this function
+        } else {
 
         char *preprocessedLine = tokenize(line);  // Tokenize the input line.
         int args_num = 0;
@@ -306,7 +310,7 @@ int main(int argc, char *argv[])
         }
         args[args_num] = NULL;  // NULL-terminate the argument list.
 
-        executeParallelCommands(preprocessedLine);  // Execute the commands.
+         executeCommands(args, args_num);
 
         if (argc == 1)
         {
@@ -315,6 +319,8 @@ int main(int argc, char *argv[])
             fflush(stdout);
         }
         free(preprocessedLine);
+    }
+    
     }
 
     free(line);  // Clean up the allocated line buffer.
