@@ -4,16 +4,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-void printError();
-void updatePaths(char *newPaths[], int numPaths);
-char *findExecutable(char *command);
-void executeCommands(char *args[], int args_num);
-void executeExternalCommand(char *args[], int args_num);
-void executeParallelCommands(char *line);
-#define MAX_LINE 1024 // The maximum length command
+#define MAX_LINE 1024 
 #define MAX_ARGS 64
 #define PATH_LEN 1024
 #define MAX_PATHS 16
+void printError();
+void updatePaths(char *newPaths[], int numPaths);
+char *findExecute(char *command);
+void executeCommands(char *args[], int args_num);
+void executeExternalCommand(char *args[], int args_num);
+void executeParallelCommands(char *line);
+
 FILE *in = NULL;
 char *line = NULL;
 int pathNULL = 0;
@@ -59,7 +60,7 @@ char *tokenize(char *input) {
 }
 
 
-char *findExecutable(char *command)
+char *findExecute(char *command)
 {
     static char path[PATH_LEN];
     if (command[0] == '/' || command[0] == '.')
@@ -155,13 +156,13 @@ void executeCommands(char *args[], int args_num)
     }
 }
  void executeExternalCommand(char *args[], int args_num){ 
-        char *executablePath = findExecutable(args[0]);
+        char *executablePath = findExecute(args[0]);
     if (!executablePath) {
         printError();
         return;
     }
 
-    // Find redirection index, if any
+   
     int redirectIndex = -1;
     char *filename = NULL;
     for (int i = 0; i < args_num; i++) {
@@ -208,18 +209,18 @@ void executeCommands(char *args[], int args_num)
             close(outFileno);
         }
 
-        // Execute the command
+        
         execv(executablePath, args);
         
         printError();
         exit(EXIT_FAILURE);
     } else {
-        // In the parent process
+        
         waitpid(pid, NULL, 0);
     }
 }
 void executeParallelCommands(char *line) {
-    char *commands[MAX_ARGS]; // Assuming a maximum number of parallel commands
+    char *commands[MAX_ARGS]; // 
     int nCommands= 0;
     char *command = strtok(line, "&");
     while (command != NULL && nCommands < MAX_ARGS) {
@@ -227,12 +228,12 @@ void executeParallelCommands(char *line) {
         command = strtok(NULL, "&");
     }
 
-    pid_t pids[nCommands]; // To store child PIDs
+    pid_t pids[nCommands]; 
 
     for (int i = 0; i < nCommands; i++) {
         pids[i] = fork();
         if (pids[i] == 0) {
-            // Child process
+            
             char *args[MAX_ARGS];
             int args_num = 0;
             char *token = strtok(commands[i], " ");
@@ -242,14 +243,14 @@ void executeParallelCommands(char *line) {
             }
             args[args_num] = NULL;
             executeCommands(args, args_num);
-            exit(0); // Ensure child exits after execution
+            exit(0); 
         } else if (pids[i] < 0) {
-            // Forking failed
+            
             printError();
         }
     }
 
-    // Parent process: wait for all child processes to finish
+    
     for (int i = 0; i < nCommands; i++) {
         if (pids[i] > 0) {
             waitpid(pids[i], NULL, 0);
@@ -261,11 +262,11 @@ int main(int argc, char *argv[])
 {
     size_t bufsize = 0;
     ssize_t lineSize;
-    FILE *input_stream = stdin;  // Default input stream is stdin for interactive mode.
+    FILE *input_stream = stdin;  
     char *args[MAX_ARGS];
     char *line = NULL;
 
-    // Handling invalid usage scenario: more than one input file for batch mode.
+    
     if (argc > 2)
     {
         printError();
@@ -273,18 +274,18 @@ int main(int argc, char *argv[])
     }
     else if (argc == 2)
     {
-        // Batch mode: attempt to open the specified file.
+        
         input_stream = fopen(argv[1], "r");
         if (!input_stream)
         {
-            // If the file cannot be opened, print an error message and exit.
+            
             printError();
             exit(EXIT_FAILURE);
         }
     }
     else
     {
-        // Interactive mode: Display the prompt.
+        
         printf("wish> ");
         fflush(stdout);
     }
@@ -293,40 +294,40 @@ int main(int argc, char *argv[])
     {
         if (line[lineSize - 1] == '\n')
         {
-            line[lineSize - 1] = '\0';  // Remove newline character.
+            line[lineSize - 1] = '\0';  
         }
           if (strchr(line, '&') != NULL) {
-            // Handle parallel commands
-            executeParallelCommands(line); // Implement this function
+            
+            executeParallelCommands(line); 
         } else {
 
-        char *preprocessedLine = tokenize(line);  // Tokenize the input line.
+        char *prePLine = tokenize(line);  
         int args_num = 0;
-        char *token = strtok(preprocessedLine, " ");
+        char *token = strtok(prePLine, " ");
         while (token != NULL && args_num < MAX_ARGS)
         {
-            args[args_num++] = token;  // Collect arguments.
+            args[args_num++] = token;  
             token = strtok(NULL, " ");
         }
-        args[args_num] = NULL;  // NULL-terminate the argument list.
+        args[args_num] = NULL;  
 
          executeCommands(args, args_num);
 
         if (argc == 1)
         {
-            // If in interactive mode, print prompt again after command execution.
+            
             printf("wish> ");
             fflush(stdout);
         }
-        free(preprocessedLine);
+        free(prePLine);
     }
     
     }
 
-    free(line);  // Clean up the allocated line buffer.
+    free(line);  
     if (argc > 1)
     {
-        fclose(input_stream);  // Close the file stream if in batch mode.
+        fclose(input_stream);  
     }
     return 0;  // Exit gracefully.
 }
