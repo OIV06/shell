@@ -9,7 +9,7 @@ void updatePaths(char *newPaths[], int numPaths);
 char *findExecutable(char *command);
 void executeCommands(char *args[], int args_num);
 void executeExternalCommand(char *args[], int args_num);
-void executeCommandsInParallel(char *commands[], int numCommands);
+void executeParallelCommands(char *commands[], int numCommands);
 #define MAX_LINE 1024 // The maximum length command
 #define MAX_ARGS 64
 #define PATH_LEN 1024
@@ -219,7 +219,7 @@ void executeCommands(char *args[], int args_num)
         waitpid(pid, NULL, 0);
     }
 }
-void executeCommandsInParallel(char *commands[], int numCommands) {
+void executeParallelCommands(char *commands[], int numCommands) {
     pid_t pids[MAX_COMMANDS];
     for (int i = 0; i < numCommands; ++i) {
         char *args[MAX_ARGS];
@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
     size_t bufsize = 0;
     ssize_t lineSize;
     FILE *input_stream = stdin;  // Default input stream is stdin for interactive mode.
-    char *args[MAX_ARGS];
+    
     char *line = NULL;
 
     // Handling invalid usage scenario: more than one input file for batch mode.
