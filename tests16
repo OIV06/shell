@@ -1,1 +1,126 @@
 
+executeParallelCommands (char *line)
+{
+  char *commands[MAX_ARGS];	// 
+  int nCommands = 0;
+  char *command = strtok (line, "&");
+  while (command != NULL && nCommands < MAX_ARGS)
+    {
+      commands[nCommands++] = command;
+      command = strtok (NULL, "&");
+    }
+
+  pid_t pids[nCommands];
+
+  for (int i = 0; i < nCommands; i++)
+    {
+      pids[i] = fork ();
+      if (pids[i] == 0)
+	{
+
+	  char *args[MAX_ARGS];
+	  int args_num = 0;
+	  char *token = strtok (commands[i], " ");
+	  while (token != NULL && args_num < MAX_ARGS)
+	    {
+	      args[args_num++] = token;
+	      token = strtok (NULL, " ");
+	    }
+	  args[args_num] = NULL;
+	  executeCommands (args, args_num);
+	  exit (0);
+	}
+      else if (pids[i] < 0)
+	{
+
+	  printError ();
+	}
+    }
+
+
+  for (int i = 0; i < nCommands; i++)
+    {
+      if (pids[i] > 0)
+	{
+	  waitpid (pids[i], NULL, 0);
+	}
+    }
+}
+
+int
+main (int argc, char *argv[])
+{
+  size_t bufsize = 0;
+  ssize_t lineSize;
+  FILE *input_stream = stdin;
+  char *args[MAX_ARGS];
+  char *line = NULL;
+
+
+  if (argc > 2)
+    {
+      printError ();
+      exit (EXIT_FAILURE);
+    }
+  else if (argc == 2)
+    {
+
+      input_stream = fopen (argv[1], "r");
+      if (!input_stream)
+	{
+
+	  printError ();
+	  exit (EXIT_FAILURE);
+	}
+    }
+  else
+    {
+
+      printf ("wish> ");
+      fflush (stdout);
+    }
+
+  while ((lineSize = getline (&line, &bufsize, input_stream)) != -1)
+    {
+      if (line[lineSize - 1] == '\n')
+	{
+	  line[lineSize - 1] = '\0';
+	}
+      if (strchr (line, '&') != NULL)
+	{
+
+	  executeParallelCommands (line);
+	}
+      else
+	{
+
+	  char *prePLine = tokenize (line);
+	  int args_num = 0;
+	  char *token = strtok (prePLine, " ");
+	  while (token != NULL && args_num < MAX_ARGS)
+	    {
+	      args[args_num++] = token;
+	      token = strtok (NULL, " ");
+	    }
+	  args[args_num] = NULL;
+
+	  executeCommands (args, args_num);
+
+	  if (argc == 1)
+	    {
+
+	      printf ("wish> ");
+	      fflush (stdout);
+	    }
+	  free (prePLine);
+	}
+
+    }
+
+  free (line);
+  if (argc > 1)
+    {
+      fclose (input_stream);
+    }
+  return 0;			// Exit gracefully.
+}
