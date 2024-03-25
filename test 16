@@ -246,57 +246,32 @@ int executeParallelCommands(char *commands[], int num_commands) {
 
     return 0; // Success
 }
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     size_t bufsize = 0;
     ssize_t lineSize;
-    FILE *input_stream = stdin;  // Default input stream is stdin for interactive mode.
-    char *args[MAX_ARGS];
+    FILE *input_stream = stdin; // Default input stream is stdin for interactive mode.
     char *line = NULL;
 
-    // Handling invalid usage scenario: more than one input file for batch mode.
-    if (argc > 2)
-    {
+    if (argc > 2) {
         printError();
         exit(EXIT_FAILURE);
-    }
-    else if (argc == 2)
-    {
-        // Batch mode: attempt to open the specified file.
+    } else if (argc == 2) {
         input_stream = fopen(argv[1], "r");
-        if (!input_stream)
-        {
-            // If the file cannot be opened, print an error message and exit.
+        if (!input_stream) {
             printError();
             exit(EXIT_FAILURE);
         }
     }
-    else
-    {
-        // Interactive mode: Display the prompt.
-        printf("wish> ");
-        fflush(stdout);
-    }
 
-    while ((lineSize = getline(&line, &bufsize, input_stream)) != -1)
-    {
-        if (line[lineSize - 1] == '\n')
-        {
-            line[lineSize - 1] = '\0';  // Remove newline character.
+    while ((lineSize = getline(&line, &bufsize, input_stream)) != -1) {
+        if (line[lineSize - 1] == '\n') {
+            line[lineSize - 1] = '\0'; // Remove newline character.
         }
 
-        char *preprocessedLine = tokenize(line);  // Tokenize the input line.
-        int args_num = 0;
-        char *token = strtok(preprocessedLine, " ");
-        while (token != NULL && args_num < MAX_ARGS)
-        {
-            args[args_num++] = token;  // Collect arguments.
-            token = strtok(NULL, " ");
-        }
-        args[args_num] = NULL;  // NULL-terminate the argument list.
+        // Tokenize the input line to preprocess for special characters
+        char *preprocessedLine = tokenize(line); // Your existing tokenize function
 
-        executeCommands(args, args_num);  // Execute the commands.
-        
+        // Split the preprocessed line by '&' to identify parallel commands
         char *commands[MAX_ARGS]; // Assuming MAX_ARGS is enough, adjust as necessary
         int num_commands = 0;
         char *cmd = strtok(preprocessedLine, "&");
@@ -305,22 +280,20 @@ int main(int argc, char *argv[])
             cmd = strtok(NULL, "&");
         }
 
-        // Execute parallel commands
-        executeParallelCommands(commands, num_commands);
+        // Execute each command (potentially in parallel)
+        executeParallelCommands(commands, num_commands); // This function needs to handle forking if necessary
 
-        if (argc == 1)
-        {
-            // If in interactive mode, print prompt again after command execution.
+        if (argc == 1) {
             printf("wish> ");
             fflush(stdout);
         }
-        free(preprocessedLine);
+        free(preprocessedLine); // Make sure to free any dynamically allocated memory within tokenize
     }
 
-    free(line);  // Clean up the allocated line buffer.
-    if (argc > 1)
-    {
-        fclose(input_stream);  // Close the file stream if in batch mode.
+    free(line);
+    if (argc > 1) {
+        fclose(input_stream);
     }
-    return 0;  // Exit gracefully.
+    return 0;
 }
+
