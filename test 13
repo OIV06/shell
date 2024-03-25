@@ -227,13 +227,17 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1) {
         // Batch mode: iterate over each file passed as an argument
-        for (int i = 1; i < argc; i++) {
-            FILE *input_stream = fopen(argv[i], "r");
-            if (!input_stream) {
+         for (int i = 1; i < argc; i++) {
+            
+            if (access(argv[i], F_OK) ==-1) {
                 fprintf(stderr, "wish: cannot open file %s\n", argv[i]);
                 continue; // Skip to the next file if the current one cannot be opened
             }
-
+            FILE *input_stream = fopen(argv[i], "r");
+            if(!input_stream){
+               fprintf(stderr, "wish: cannot open file %s\n", argv[i]);
+                continue; // Skip to the next file if the current one cannot be opened 
+            }
             while (getline(&line, &bufsize, input_stream) != -1) {
                 // Trim the newline character, if present
                 line[strcspn(line, "\n")] = 0;
